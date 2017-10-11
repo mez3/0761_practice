@@ -223,7 +223,7 @@ function [k_errors] = tof_mat(k_amp)
         errors2 = vertcat(er_y2_1, er_y2_2);
         errors2 = errors2';
         n_er = length(errors2);
-        er_plots(n_er,1) = struct('detect','','number','','CF','','error','','k_amp','','parameters','');
+        er_plots(n_er,1) = struct('detect','','number','','CF','','error','','k_amp','');
         k = 1;
         for i = errors2
             if i > 1
