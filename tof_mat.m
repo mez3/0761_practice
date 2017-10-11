@@ -15,6 +15,7 @@ function [k_errors] = tof_mat(k_amp)
     data_et(:,2) = etalon.detector_filtered_field;
     data_et(:,1)=t*1e-9;
     
+    
     for j = 2:n
         s = det_struct(j).detect;
         t = t_start:dt:t_end - dt;
@@ -24,7 +25,9 @@ function [k_errors] = tof_mat(k_amp)
         data2(:,1) = signal_cut(data(:,1));
        % medfilt1(data2, rang_filt);
         %[id_sd,der2x_f] = tof_secder(data2, shft, MED, delay_sd );
-       [id_cf,f_res] = tof_cf(data2,delay_cf,TOFCF_ID_IDX);
+       [id_cf,f_res,y_thresh] = tof_cf(data2,delay_cf,TOFCF_ID_IDX);
+       det_struct(j).f_res = f_res;
+       det_struct(j).y_thresh = y_thresh;
          data3(:,2) = signal_cut(data_et(:,2));
          data3(:,1) = signal_cut(data_et(:,1));
 %         %[id_et_sd,der2x_f_et] = tof_secder(data3, shft, MED, delay_sd );
@@ -38,7 +41,7 @@ function [k_errors] = tof_mat(k_amp)
     save('det_struct_1_m.mat', 'det_struct');
    % save('det_for_approx.mat', 'for_approx');
     index = 100;
-    k_errors = visualize(etalon.detector_filtered_field, index);
+    k_errors = visualize();
     
     function [y] = signal_cut(s)
         shift = 1000;
@@ -58,7 +61,7 @@ function [k_errors] = tof_mat(k_amp)
 
     end
 
-    function [id_cf,f_res] = tof_cf(s,delay,ID_IDX)
+    function [id_cf,f_res,y] = tof_cf(s,delay,ID_IDX)
         
         Ythreshold=k_amp*0.01*max(s(:, 2)); % 5e-4 % 0.35, 0.3,0.2,0.1,0.08,0.0625,0.05,0.025,0.012
 
@@ -84,7 +87,7 @@ function [k_errors] = tof_mat(k_amp)
                 f2=f2-Ythreshold; idx=find(f2<0); f2(idx)=0;
                 f_res = f1 - f2;
         end
-
+        
         % Zerro-crossing %
         t1 = size(f_res, 1);
         k=1;
@@ -200,7 +203,7 @@ function [k_errors] = tof_mat(k_amp)
         end
 
     end
-    function [k_er] = visualize(et_signal, idx)
+    function [k_er] = visualize()
         %y1 = zeros(size(det_struct, 2) - 1,1);
         y2 = zeros(size(det_struct, 2) - 1,1);
         for i=2:size(det_struct,2)
@@ -231,9 +234,9 @@ function [k_errors] = tof_mat(k_amp)
                 er_plots(k).k_amp = k_amp;
                 er_plots(k).parameters = det_struct(i).parameters;
                 er_plots(k).CF_et = det_struct(i).det_CF_et;
-                er_plots(i).parameters.p_FlucNe0 = det_struct(i).parameters.p_FlucNe0;
-                er_plots(i).parameters.p_FlucIcen0 = det_struct(i).parameters.p_FlucIcen;
-                er_plots(i).parameters.p_FlucJcen0 = det_struct(i).parameters.p_FlucJcen;
+                er_plots(k).f_res = det_struct(i).f_res;
+                er_plots(k).y_thresh = det_struct(i).y_thresh;
+               
                 k = k + 1;
             end;
         end;
