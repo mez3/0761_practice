@@ -1,9 +1,9 @@
-start = 46;
-stop = 48;
-step = 0.1;
+start = 0.46;
+stop = 0.48;
+step = 0.001;
 xml = zeros(1,stop-start);
 xml_min = 1000000;
-
+%j = 1;
 %k = 0;
 %xml_min(1) = 1000000;
 %xml_min(2) = 1000000;

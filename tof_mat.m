@@ -1,4 +1,6 @@
 function [k_errors] = tof_mat(k_amp)
+    if nargin < 1, k_amp = 0.47; end;
+    if (nargin ==1 && k_amp >= 1 || k_amp <=0) k_amp =0.5; end;
     MED=50;% tof_secder median filter windowSz FiltWindSz.MED
     TOFCF_ID_IDX=1;
     visopt = 0;
@@ -63,7 +65,7 @@ function [k_errors] = tof_mat(k_amp)
 
     function [id_cf,f_res,y] = tof_cf(s,delay,ID_IDX)
         
-        Ythreshold=k_amp*0.01*max(s(:, 2)); % 5e-4 % 0.35, 0.3,0.2,0.1,0.08,0.0625,0.05,0.025,0.012
+        Ythreshold=k_amp*max(s(:, 2)); % 5e-4 % 0.35, 0.3,0.2,0.1,0.08,0.0625,0.05,0.025,0.012
 
         y = s(:, 2);
 
@@ -204,6 +206,7 @@ function [k_errors] = tof_mat(k_amp)
 
     end
     function [k_er] = visualize()
+        RANGE=450;
         %y1 = zeros(size(det_struct, 2) - 1,1);
         y2 = zeros(size(det_struct, 2) - 1,1);
         for i=2:size(det_struct,2)
@@ -215,15 +218,15 @@ function [k_errors] = tof_mat(k_amp)
         %m1 = mean(y1)-2000;
         %for_gr = find(y1 > m1);
        % m_y1 = mean(y1(1:50));
-        m_y2 = mean(y2(2:5));
-        er_y2_1 = find(y2 < (m_y2-500));
-        er_y2_2 = find(y2 > (m_y2+500));
+        m_y2 = median(y2(2:18))%m_y2 = mean(y2(2:5));
+        er_y2_1 = find(y2 < (m_y2-RANGE));
+        er_y2_2 = find(y2 > (m_y2+RANGE));
       
    
         errors2 = vertcat(er_y2_1, er_y2_2);
         errors2 = errors2';
         n_er = length(errors2);
-        er_plots(n_er,1) = struct('detect','','number','','CF','','error','','k_amp','');
+        er_plots(n_er,1) = struct('detect','','number','','CF','','error','','k_amp','','parameters','');
         k = 1;
         for i = errors2
             if i > 1
