@@ -1,9 +1,10 @@
-function [k_errors] = tof_mat(k_amp)
-    if nargin < 1, k_amp = 0.47; end;
-    if (nargin ==1 && k_amp >= 1 || k_amp <=0) k_amp =0.5; end;
+function [k_errors] = tof_mat()
+   % if nargin < 1, k_amp = 0.47; end;
+   % if (nargin ==1 && k_amp >= 1 || k_amp <=0) k_amp =0.5; end;
     MED=50;% tof_secder median filter windowSz FiltWindSz.MED
     TOFCF_ID_IDX=1;
-    visopt = 0;
+    visopt = 1;
+    saveopt = 1;
     delay_cf=1000;
     delay_sd=round(0.5*MED);
     dt=1e-3;
@@ -16,8 +17,9 @@ function [k_errors] = tof_mat(k_amp)
     t = t_start:dt:t_end - dt;
     data_et(:,2) = etalon.detector_filtered_field;
     data_et(:,1)=t*1e-9;
-    
-    
+    d_k_amp = 0.01;
+    start_k_amp = 0.4;
+    stop_k_amp = 0.6;
     for j = 2:n
         s = det_struct(j).detect;
         t = t_start:dt:t_end - dt;
@@ -27,15 +29,28 @@ function [k_errors] = tof_mat(k_amp)
         data2(:,1) = signal_cut(data(:,1));
        % medfilt1(data2, rang_filt);
         %[id_sd,der2x_f] = tof_secder(data2, shft, MED, delay_sd );
-       [id_cf,f_res,y_thresh] = tof_cf(data2,delay_cf,TOFCF_ID_IDX);
-       det_struct(j).f_res = f_res;
-       det_struct(j).y_thresh = y_thresh;
+    
+     err_min=1000;
+       for q=start_k_amp:d_k_amp:stop_k_amp       
+        [id_cf,f_res,y_thresh] = tof_cf(data2,delay_cf,TOFCF_ID_IDX,q);
+         err=abs(id_cf-4712);
+         if err < err_min 
+             err_min = err;
+             id_cf_e = id_cf;
+             f_res_e = f_res;
+             y_thresh_e = y_thresh;
+             k_amp_e = q;
+         end;
+       end
+       det_struct(j).k_amp = k_amp_e;
+      det_struct(j).f_res = f_res_e;
+       det_struct(j).y_thresh = y_thresh_e;
          data3(:,2) = signal_cut(data_et(:,2));
          data3(:,1) = signal_cut(data_et(:,1));
 %         %[id_et_sd,der2x_f_et] = tof_secder(data3, shft, MED, delay_sd );
-         [id_et_cf,f_res_et] = tof_cf(data3,delay_cf,TOFCF_ID_IDX);
+         [id_et_cf,f_res_et] = tof_cf(data3,delay_cf,TOFCF_ID_IDX,0.47);
         %det_struct(j).det_SD_m = id_sd;
-        det_struct(j).det_CF_m = id_cf;
+        det_struct(j).det_CF_m = id_cf_e;
         %det_struct(j).det_SD_et = id_et_sd;
       det_struct(j).det_CF_et = id_et_cf;
     end
@@ -63,7 +78,7 @@ function [k_errors] = tof_mat(k_amp)
 
     end
 
-    function [id_cf,f_res,y] = tof_cf(s,delay,ID_IDX)
+    function [id_cf,f_res,y] = tof_cf(s,delay,ID_IDX,k_amp)
         
         Ythreshold=k_amp*max(s(:, 2)); % 5e-4 % 0.35, 0.3,0.2,0.1,0.08,0.0625,0.05,0.025,0.012
 
@@ -218,33 +233,36 @@ function [k_errors] = tof_mat(k_amp)
         %m1 = mean(y1)-2000;
         %for_gr = find(y1 > m1);
        % m_y1 = mean(y1(1:50));
-        m_y2 = median(y2(2:18))%m_y2 = mean(y2(2:5));
+        m_y2 = median(y2(2:18));%m_y2 = mean(y2(2:5));
         er_y2_1 = find(y2 < (m_y2-RANGE));
         er_y2_2 = find(y2 > (m_y2+RANGE));
       
-   
+        
         errors2 = vertcat(er_y2_1, er_y2_2);
         errors2 = errors2';
         n_er = length(errors2);
-        er_plots(n_er,1) = struct('detect','','number','','CF','','error','','k_amp','','parameters','');
-        k = 1;
-        for i = errors2
-            if i > 1
-                er_plots(k).detect = det_struct(i).detect;
-                er_plots(k).CF = det_struct(i).det_CF_m;
-                er_plots(k).number = i;
-                er_plots(k).error = abs(y2(i)-m_y2);
-                er_plots(k).k_amp = k_amp;
-                er_plots(k).parameters = det_struct(i).parameters;
-                er_plots(k).CF_et = det_struct(i).det_CF_et;
-                er_plots(k).f_res = det_struct(i).f_res;
-                er_plots(k).y_thresh = det_struct(i).y_thresh;
-               
-                k = k + 1;
-            end;
-        end;
         
-        save('er_plots.mat', 'er_plots');
+        if saveopt
+            er_plots(n_er,1) = struct('detect','','number','','CF','','error','','k_amp','','parameters','');
+            k = 1;
+            for i = errors2
+                if i > 1
+                    er_plots(k).detect = det_struct(i).detect;
+                    er_plots(k).CF = det_struct(i).det_CF_m;
+                    er_plots(k).number = i;
+                    er_plots(k).error = abs(y2(i)-m_y2);
+                    er_plots(k).k_amp = det_struct(i).k_amp;
+                    er_plots(k).parameters = det_struct(i).parameters;
+                    er_plots(k).CF_et = det_struct(i).det_CF_et;
+                    er_plots(k).f_res = det_struct(i).f_res;
+                    er_plots(k).y_thresh = det_struct(i).y_thresh;
+
+                    k = k + 1;
+                end;
+            end;
+
+            save('er_plots.mat', 'er_plots');
+        end;
         k_er = n_er*100/length(y2);
 %         for i = idx
 %        
