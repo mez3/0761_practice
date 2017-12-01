@@ -18,160 +18,47 @@
 #    each of which can be 0 or 1
 
 import random
-from functools import reduce
 from deap import base
 from deap import creator
 from deap import tools
-from numpy import *
-import scipy.io
-import scipy.signal
-from time import time
-from multiprocessing import Pool
-import matplotlib as mpl
+import setpars
+
 
 creator.create("FitnessMax", base.Fitness, weights=(1.0,))
 creator.create("Individual", list, fitness=creator.FitnessMax)
 
 toolbox = base.Toolbox()
 
-# Attribute generator 
+# Attribute generator
 #                      define 'attr_bool' to be an attribute ('gene')
 #                      which corresponds to integers sampled uniformly
 #                      from the range [0,1] (i.e. 0 or 1 with equal
 #                      probability)
-toolbox.register("attr_bool", random.randint,1, 99)
+toolbox.register("attr_bool", random.randint, 1, 1500)
 
 # Structure initializers
 #                         define 'individual' to be an individual
 #                         consisting of 100 'attr_bool' elements ('genes')
-toolbox.register("individual", tools.initRepeat, creator.Individual, 
-    toolbox.attr_bool, 3)
+toolbox.register("individual", tools.initRepeat, creator.Individual,
+                toolbox.attr_bool, 4)
 
 # define the population to be a list of individuals
 toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
-MED = 50
-TOFCF_ID_IDX = 0
-delay_cf = 1000
-shft = 3000
-etalon = scipy.io.loadmat('detector_filtered_field.mat')
-d = scipy.io.loadmat('det_struct_2.mat')
-det_struct = array(d['det_struct'])
-n = det_struct.shape[1]
-data_et = array(etalon['detector_filtered_field'])
-s = array(det_struct['detect'])
-
-def tof_mat(args):
-    start_k_amp = args[0]
-    stop_k_amp = args[1]
-    p_filt = args[2]
-    pool = Pool(8)
-    args = list(zip(range(2,n),[start_k_amp]*(n-1),[stop_k_amp]*(n-1), [p_filt]*(n-1)))
-    det_CF_m = list(pool.map(main_1_calc,args))
-    #for j in range(2,n):
-        #det_CF_m[j-1] = main_1_calc(j,start_k_amp,stop_k_amp)
-    return visualize(det_CF_m)
-
-def main_1_calc(args):
-    j = args[0]
-    start_k_amp = args[1]
-    stop_k_amp = args[2]
-    p_filt = args[3]
-    len_mas = stop_k_amp - start_k_amp +1 
-    data = s[0][j]
-    data2 = signal_cut(data)
-    id_cf_mas = zeros((int8(len_mas),1))
-    u=1
-    for q in range(start_k_amp, stop_k_amp-1):
-        id_cf_mas[u-1] = tof_cf(data2,delay_cf,TOFCF_ID_IDX,q)
-        u=u+1
-    id_cf_mas = scipy.signal.medfilt(id_cf_mas, p_filt)
-    mpl.plot(id_cf_mas)
-    mpl.show()
-    id_cf = median(id_cf_mas)
-    return id_cf
-
-def signal_cut(s):
-    shift = 1000
-    s_shift = s[shift:-1]
-    s_fill = s[shift] * ones((shift-1,1))
-    return vstack((s_fill, s_shift))
-
-def constant_fraction(y,delay):
-    f = 0.5
-    #EndVal=y.max()
-    #print(EndVal)
-    offset = y[delay-1]*ones((delay,1))
-    offset2= y[-1]*ones((delay,1))
-    f1 = vstack((offset, y))
-    f2 = f * vstack((y, offset2))
-    f_res = f1 - f2
-    return f_res
-
-
-def tof_cf(s,delay,ID_IDX,k_amp): 
-
-    Ythreshold = k_amp * max(s) / 100
-    
-    y = s - Ythreshold
-  
-    f_res = constant_fraction(y,delay)
-
-    # % Zerro-crossing %
-    t1 = f_res.shape[0]
-    k = 0
-    idn = []
-    for i in range(1 + delay, t1):
-        if f_res[i] * f_res[i - 1] < 0:
-            idn.append(i - delay)
-            k = k + 1
-   # %  Making id_cf 
-    k = k - 1
-    if any(idn):
-        if ID_IDX > k:
-            if idn[k-1] > 1:
-                id_cf = idn[k-1]
-            else:
-                id_cf = delay
-        else:
-            id_cf = idn[ID_IDX]
-    else:
-        id_cf = y.shape[0]
-            
-    if id_cf >= f_res.shape[0]:
-        id_cf=y.shape[0]
-    else:
-        id_cf=id_cf-1
-    #id_cf = 0
-    #for i in range(0, len(idn)):
-        #if idn[i] + delay < sum(nonzero(f_res == f_res.max())[0]) / len(nonzero(f_res == f_res.max())[0]) and idn[i] + delay > sum(nonzero(f_res == f_res.min())[0])/len(nonzero(f_res == f_res.min())):
-            #id_cf = idn[i]
-    return id_cf
-
-def visualize(det_CF_m):
-    RANGE=450
-    m_y2 = median(det_CF_m[2:18])
-    er_y2_1 = nonzero(det_CF_m < (m_y2-RANGE))
-    er_y2_2 = nonzero(det_CF_m > (m_y2+RANGE))
-    errors2 = hstack((er_y2_1, er_y2_2))
-    n_er = errors2.shape[1]
-    k_er = n_er * 100 / len(det_CF_m)
-    return k_er
 
 # the goal ('fitness') function to be maximized
 def EvalOneMax(individual):
-    if individual[0] < individual[1] and individual[2] % 2 == 1 and individual[2] > 3 and individual[2] < 13:
-        result = tof_mat(individual)
-        print(result)
-        if result == 0:
-            print(individual)
-        return 1/result
-    else:
-        return 0
-    
-#----------
+    module = setpars.module("mediumFluc")
+    used_pars = ('flucicen', 'flucjcen', 'flucne0', 'flucradius')
+    individual[2] *= 1e19
+    dictofargs = dict(zip(used_pars, individual))
+    module.changesettings(dictofargs)
+    return module.getvalue()
+
+
+# ----------
 # Operator registration
-#----------
+# ----------
 # register the goal / fitness function
 toolbox.register("evaluate", EvalOneMax)
 
@@ -188,7 +75,8 @@ toolbox.register("mutate", tools.mutFlipBit, indpb=0.05)
 # drawn randomly from the current generation.
 toolbox.register("select", tools.selTournament, tournsize=3)
 
-#----------
+# ----------
+
 
 def main():
     random.seed(64)
@@ -212,7 +100,7 @@ def main():
     
     print("  Evaluated %i individuals" % len(pop))
 
-    # Extracting all the fitnesses of 
+    # Extracting all the fitnesses of
     fits = [ind.fitness.values[0] for ind in pop]
 
     # Variable keeping track of the number of generations
@@ -276,6 +164,7 @@ def main():
     
     best_ind = tools.selBest(pop, 1)[0]
     print("Best individual is %s, %s" % (best_ind, best_ind.fitness.values))
+
     
 if __name__ == "__main__":
     main()
